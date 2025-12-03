@@ -17,7 +17,7 @@ namespace godot {
     public:
         static int GetBitsPerSample(float,int,int,int);
         static Dictionary DecodeOggMem(String);
-        static PackedFloat32Array downsample(PackedFloat32Array,float,int,int);
+        static PackedFloat32Array downsample(PackedFloat32Array,float,int,int,bool = false);
     };
 
 }

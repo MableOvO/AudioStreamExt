@@ -48,7 +48,7 @@ Ref<WaveformDataChannel> WaveformData::channel(int index)
     {
         buildChannelData();
     }
-    if (index >= 0 and index < channelData.size())
+    if (index >= 0 && index < channelData.size())
     {
         return channelData[index];
     }
@@ -64,7 +64,7 @@ Ref<WaveformDataChannel> WaveformData::channel(int index)
 
 inline float WaveformData::Get(int index)
 {
-    if (index >= 0 and index < data.size())
+    if (index >= 0 && index < data.size())
        {
          return data[index];
        }

@@ -16,16 +16,17 @@ using namespace godot;
 
 //essentially just https://gist.github.com/mattmalec/6ceee1f3961ff3068727ca98ff199fab but JUST the goods
 //downsample our PCM data if the sample isnt 44100
-PackedFloat32Array AudioStreamEXT::downsample(PackedFloat32Array Data,float length,int isMono,int inFrequency) {
+PackedFloat32Array AudioStreamEXT::downsample(PackedFloat32Array Data,float length,int isMono,int inFrequency,bool warn) {
     int downsampleFreq = 44100;
 
-    if (int(inFrequency) == downsampleFreq)
+    if (int(inFrequency) == downsampleFreq && warn)
     {
         ERR_PRINT(vformat("SAMPLE FREQ IS ALREADY %s, skipping downsample", downsampleFreq));
         return Data.slice(0,length);
     }
-    
-    print_line(vformat("downsampling stream from %s to %s", inFrequency,downsampleFreq));
+    else{
+        print_line(vformat("downsampling stream from %s to %s", inFrequency,downsampleFreq));
+    }
     float scale = float(downsampleFreq) / float(inFrequency);
     PackedFloat32Array output;
 
@@ -109,7 +110,7 @@ PackedFloat32Array AudioStreamEXT::downsample(PackedFloat32Array Data,float leng
 //get bits 
 int AudioStreamEXT::GetBitsPerSample(float duration, int sampleRate, int channels,int PCM_BYTES)
 {
-    if (duration <= 0 or sampleRate <= 0 or channels <= 0)
+    if (duration <= 0 || sampleRate <= 0 || channels <= 0)
     {
         ERR_PRINT("Something went wrong calculating bit depth :/");
         return -1;
@@ -304,5 +305,5 @@ void AudioStreamEXT::_bind_methods() {
     ClassDB::bind_static_method("AudioStreamEXT", D_METHOD("GetBitsPerSample", "duration","sampleRate","channels","PCM_BYTES"), &AudioStreamEXT::GetBitsPerSample);
 
     ClassDB::bind_static_method("AudioStreamEXT", D_METHOD("DecodeOggMem", "OggPath"), &AudioStreamEXT::DecodeOggMem);
-    ClassDB::bind_static_method("AudioStreamEXT", D_METHOD("downsample", "Data", "length", "isMono", "inFrequency"), &AudioStreamEXT::downsample);
+    ClassDB::bind_static_method("AudioStreamEXT", D_METHOD("downsample", "Data", "length", "isMono", "inFrequency","warn"), &AudioStreamEXT::downsample);
 }

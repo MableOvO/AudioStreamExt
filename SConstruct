@@ -36,7 +36,7 @@ elif env["platform"] == "ios":
         )
 else:
     library = env.SharedLibrary(
-        "demo/AudioVorbisExtender/AudioStreamEXT{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
+        "demo/AudioVorbisExtender/AudioStreamEXT{}".format(env["SHLIBSUFFIX"]),
         source=sources,
     )
 
