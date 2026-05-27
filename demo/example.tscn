@@ -1,73 +1,48 @@
-[gd_scene load_steps=7 format=3 uid="uid://b540ywtjqmjit"]
+[gd_scene load_steps=6 format=3 uid="uid://b540ywtjqmjit"]
 
 [ext_resource type="Texture2D" uid="uid://bv8sjvqau7lbp" path="res://icon.svg" id="1_2jas5"]
 
 [sub_resource type="GDScript" id="GDScript_6gkck"]
 script/source = "extends Node2D
 
-var waveform = WaveformRenderer.new()
-var Audio = AudioStreamPlayer.new()
+
+@onready var waveform:WaveformRenderer
+
+var cache:Dictionary[String,WaveformData] = {}
 
 func _ready():
-	self.add_child(waveform)
-	self.add_child(Audio)
-	$tempoTrackerr.audio = Audio
-	Audio.stream = load(\"res://example.ogg\")
-	waveform.position = Vector2(1480,120)
-	waveform.setOrientation(\"VERTICAL\")
-	waveform.draw_bg = true
-	waveform.keepData = true
-	#waveform.height *= 2 
-	waveform.width = 40 * 16
-	waveform.scale *= 2
-	#can be a string/path to ogg or a much more direct WaveformData.new() if you want to handle that by yourself
-	waveform.create(\"res://example.ogg\",Color.WHITE,Color.BLACK,$tempoTrackerr.crochet / 1.95)
-	$tempoTrackerr.connect(\"section_changed\",sectionNew)
+	$OptionButton.item_selected.connect(make_waveform)
+
+func make_waveform(selected_item:int):
+	var path = \"res://%s.ogg\" % $OptionButton.get_item_text(selected_item)
+	var data:WaveformData = null
+	
+	if !cache.has(path):
+		cache[path] = WaveformDataParser.interpretSound(path)
+	
+	data = cache[path]
+	
+	$tempoTrackerr.audio.stream = load(path)
+	
+	if waveform == null:
+		waveform = WaveformRenderer.new(data,$tempoTrackerr.crochet / 1.95)
+		waveform.current_orientation = waveform.orientation.VERTICAL
+		waveform.position.y = -320.0 ; waveform.width = 40 * 16
+		self.add_child(waveform)
+	else:
+		waveform.data = data
+	
+	$tempoTrackerr.audio.play($tempoTrackerr._last_time / 1000)
 
 
-#im bullshitting here, i dont actually know what would make ts look correct
-func sectionNew(_section):
-	waveform.time += 60 / 1.95
-	waveform.is_dirty = true
-
-
-func _unhandled_input(_event):
-	if Input.is_action_just_pressed(\"ui_accept\"):
-		Audio.play()
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_DOWN):
-		waveform.time += 10 / 1.95
-		waveform.is_dirty = true
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_UP):
-		waveform.time -= 10 / 1.95
-		waveform.is_dirty = true
+func _process(_delta: float) -> void:
+	if !$tempoTrackerr.audio.has_stream_playback() || waveform == null: return
+	waveform.time = $tempoTrackerr.get_step_time() / 7.8
+	waveform.dirty = true
 "
 
 [sub_resource type="GDScript" id="GDScript_2jas5"]
 script/source = "extends Node
-
-var audio = null
-var cur_beat = 0
-signal beat_hit(beat)
-signal section_changed(section)
-
-var bpm:float = 182.0
-
-
-var crochet:float:
-	get: return ((60.0 / bpm) * 1000.0)
-
-
-
-#copied roughly from FNF-Unholy-Engine Conductor.gd, as an example of use case
-
-
-func _process(delta):
-	if audio != null:
-		tracker(delta)
-
-
-
-
 
 var _resync_timer:float = 0.0
 var _last_time:float = 0.0
@@ -77,8 +52,39 @@ var cur_section = 0
 var step_time = 0
 var beats = 4
 var beat_time = 0.0
-func tracker(delta):
-	if audio and audio.playing:
+
+var audio := AudioStreamPlayer.new()
+var cur_beat = 0
+
+signal beat_hit(beat)
+signal section_changed(section)
+
+var bpm:float = 182.0
+
+
+var crochet:float:
+	get: return ((60.0 / bpm) * 1000.0)
+
+#copied roughly from FNF-Unholy-Engine Conductor.gd, as an example of use case
+
+
+func _ready() -> void:
+	add_child(audio)
+	get_tree().process_frame.connect(tracker)
+
+func get_step_time() -> float:
+	return get_section_time() * 16 * (crochet / 4.0)
+
+func get_section_time() -> float:
+	var section_length = beats * crochet
+	return song_pos / section_length
+
+func tracker():
+	var delta := get_process_delta_time()
+	
+	if !audio: return
+	
+	if audio.playing:
 		var aud_pos:float = (audio.get_playback_position() + AudioServer.get_time_since_last_mix()) * 1000
 		if aud_pos == _last_time:
 			_resync_timer += delta * 1000
@@ -89,12 +95,11 @@ func tracker(delta):
 		song_pos = aud_pos + _resync_timer
 
 	if song_pos > 0:
-		
 		if song_pos > beat_time + crochet:
 			beat_time += crochet
 			cur_beat += 1
 			beat_hit.emit(cur_beat)
-		
+			
 			if cur_beat % beats == 0:
 				cur_section += 1
 				section_changed.emit(cur_section)
@@ -112,24 +117,7 @@ void fragment() {
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_8lvy3"]
 shader = SubResource("Shader_n51mc")
 
-[sub_resource type="GDScript" id="GDScript_n51mc"]
-script/source = "extends Sprite2D
-
-
-
-#BEHOLD MY CUBE OF FPS TESTING
-#IF THIS CUBE STUTTERS OR HANGS THE GAME IS LAGGING (from the waveform likley)
-
-var time_passed = 0.0
-var pos_offset = Vector2(500,800)
-var amplitute = 50
-func _process(delta: float) -> void:
-	time_passed += delta
-	self.position = Vector2(amplitute + (amplitute * sin(time_passed * 2.0)), amplitute + (amplitute * cos(time_passed * 1.5))) + pos_offset
-"
-
 [node name="Example" type="Node2D"]
-scale = Vector2(0.5, 0.5)
 script = SubResource("GDScript_6gkck")
 
 [node name="tempoTrackerr" type="Node" parent="."]
@@ -137,6 +125,19 @@ script = SubResource("GDScript_2jas5")
 
 [node name="THE CUBE OF FPS TESTING" type="Sprite2D" parent="."]
 material = SubResource("ShaderMaterial_8lvy3")
-scale = Vector2(2.96875, 2.96875)
+position = Vector2(-553, 276)
 texture = ExtResource("1_2jas5")
-script = SubResource("GDScript_n51mc")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+
+[node name="OptionButton" type="OptionButton" parent="."]
+offset_left = -623.0
+offset_top = -334.0
+offset_right = -591.0
+offset_bottom = -314.0
+focus_mode = 0
+item_count = 2
+popup/item_0/text = "example"
+popup/item_0/id = 0
+popup/item_1/text = "example2"
+popup/item_1/id = 1
